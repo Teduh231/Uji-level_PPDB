@@ -378,3 +378,38 @@ include 'header.php';
         </tbody>
     </table>
 </div>
+<div class="container">
+    <h2>History Login</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Kode Petugas</th>
+                <th>Nama Petugas</th>
+                <th>Role</th>
+                <th>Waktu Login</th>
+                <th>IP Address</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php
+            $result = $conn->query("
+                SELECT lh.id, lh.kd_petugas, p.nama_petugas, p.role, lh.login_time, lh.ip_address
+                FROM login_history lh
+                JOIN petugas p ON lh.kd_petugas = p.Kd_petugas
+                ORDER BY lh.login_time DESC
+            ");
+            while ($row = $result->fetch_assoc()) {
+                echo "<tr>
+                    <td>{$row['id']}</td>
+                    <td>{$row['kd_petugas']}</td>
+                    <td>{$row['nama_petugas']}</td>
+                    <td>{$row['role']}</td>
+                    <td>{$row['login_time']}</td>
+                    <td>{$row['ip_address']}</td>
+                </tr>";
+            }
+            ?>
+        </tbody>
+    </table>
+</div>

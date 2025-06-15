@@ -8,32 +8,31 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'tu')) {
 $conn = new mysqli("localhost", "root", "", "ppdb");
 if ($conn->connect_error) die("Koneksi gagal: " . $conn->connect_error);
 
-// Ambil data pendaftar
-$pendaftar = [];
-$result = $conn->query("SELECT id_pendaftar, Nama, Tahun_ajaran FROM pendaftaran ORDER BY id_pendaftar ASC");
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $pendaftar[] = $row;
+// Ambil data pendaftar berdasarkan no_pendaftar
+$pendaftar = null;
+if (isset($_POST['cek_pendaftar'])) {
+    $no_pendaftar = $conn->real_escape_string($_POST['no_pendaftar']);
+    $result = $conn->query("SELECT id_pendaftar, no_pendaftar, Nama, Tahun_ajaran FROM pendaftaran WHERE no_pendaftar = '$no_pendaftar'");
+    if ($result && $result->num_rows > 0) {
+        $pendaftar = $result->fetch_assoc();
+    } else {
+        echo "<script>alert('No Pendaftar tidak ditemukan!');</script>";
     }
 }
 
 // Ambil biaya berdasarkan tahun ajaran
 $biaya_tahunan = [];
-if (isset($_GET['id_pendaftar'])) {
-    $id_pendaftar = intval($_GET['id_pendaftar']);
-    $result = $conn->query("SELECT Tahun_ajaran FROM pendaftaran WHERE id_pendaftar = $id_pendaftar");
-    if ($result && $result->num_rows > 0) {
-        $tahun_ajaran = $result->fetch_assoc()['Tahun_ajaran'];
-        $result_biaya = $conn->query("SELECT * FROM biaya_tahunan WHERE Tahun_ajaran = '$tahun_ajaran'");
-        if ($result_biaya && $result_biaya->num_rows > 0) {
-            $biaya_tahunan = $result_biaya->fetch_assoc();
-        }
+if ($pendaftar) {
+    $tahun_ajaran = $pendaftar['Tahun_ajaran'];
+    $result_biaya = $conn->query("SELECT * FROM biaya_tahunan WHERE Tahun_ajaran = '$tahun_ajaran'");
+    if ($result_biaya && $result_biaya->num_rows > 0) {
+        $biaya_tahunan = $result_biaya->fetch_assoc();
     }
 }
 
 // Proses pembayaran
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bayar'])) {
-    $id_pendaftar = intval($_POST['id_pendaftar']);
+    $no_pendaftar = $conn->real_escape_string($_POST['no_pendaftar']);
     $jenis_biaya = $_POST['jenis_biaya'];
     $jumlah_biaya = floatval($_POST['jumlah_biaya']);
     $uang_dibayar = floatval($_POST['uang_dibayar']);
@@ -47,11 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bayar'])) {
     $kembalian = $uang_dibayar - $jumlah_biaya;
 
     // Simpan pembayaran ke database
-    $stmt = $conn->prepare("INSERT INTO pembayaran (id_pendaftar, jenis_biaya, jumlah_biaya, uang_dibayar, kembalian, tanggal_pembayaran) VALUES (?, ?, ?, ?, ?, NOW())");
+    $stmt = $conn->prepare("INSERT INTO pembayaran (no_pendaftar, jenis_biaya, jumlah_biaya, uang_dibayar, kembalian, tanggal_pembayaran) VALUES (?, ?, ?, ?, ?, NOW())");
     if (!$stmt) {
         die("Error pada query: " . $conn->error);
     }
-    $stmt->bind_param("isdid", $id_pendaftar, $jenis_biaya, $jumlah_biaya, $uang_dibayar, $kembalian);
+    $stmt->bind_param("ssdii", $no_pendaftar, $jenis_biaya, $jumlah_biaya, $uang_dibayar, $kembalian);
 
     if ($stmt->execute()) {
         echo "<script>alert('Pembayaran berhasil!'); window.location.href='bayar.php';</script>";
@@ -61,27 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bayar'])) {
     $stmt->close();
 }
 
-// Ambil data pembayaran untuk ditampilkan
-$pembayaran = [];
-$result = $conn->query("SELECT pembayaran.*, pendaftaran.Nama FROM pembayaran JOIN pendaftaran ON pembayaran.id_pendaftar = pendaftaran.id_pendaftar ORDER BY pembayaran.tanggal_pembayaran DESC");
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $pembayaran[] = $row;
-    }
-}
-
-// Cek jenis biaya yang sudah dibayar
-$jenis_biaya_terbayar = [];
-if (isset($_GET['id_pendaftar'])) {
-    $id_pendaftar = intval($_GET['id_pendaftar']);
-    $result = $conn->query("SELECT jenis_biaya FROM pembayaran WHERE id_pendaftar = $id_pendaftar");
-    if ($result && $result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $jenis_biaya_terbayar[] = $row['jenis_biaya'];
-        }
-    }
-}
-
 include 'header.php';
 ?>
 <!DOCTYPE html>
@@ -89,7 +67,6 @@ include 'header.php';
 <head>
     <meta charset="UTF-8">
     <title>Sistem Pembayaran</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -138,25 +115,6 @@ include 'header.php';
         button:hover {
             background-color:rgb(112, 82, 51);
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background: #fff;
-        }
-        th, td {
-            padding: 12px 10px;
-            text-align: center;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        th {
-            background: #f1f5f9;
-            color: #1e293b;
-            font-weight: 600;
-        }
-        tr:hover {
-            background-color: #f9fafb;
-        }
     </style>
     <script>
         function updateJumlahBiaya() {
@@ -171,15 +129,9 @@ include 'header.php';
                 B_seragam: <?= isset($biaya_tahunan['B_seragam']) ? $biaya_tahunan['B_seragam'] : 0 ?>
             };
 
-            // Format Rupiah
-            const formatRupiah = (number) => {
-                return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(number);
-            };
-
             // Set nilai input jumlah biaya berdasarkan pilihan jenis biaya
             if (biaya[jenisBiaya] !== undefined) {
-                jumlahBiayaInput.value = biaya[jenisBiaya]; // Set nilai asli (angka)
-                jumlahBiayaInput.setAttribute('data-formatted', formatRupiah(biaya[jenisBiaya])); // Simpan format Rupiah
+                jumlahBiayaInput.value = biaya[jenisBiaya];
             } else {
                 jumlahBiayaInput.value = 0;
             }
@@ -189,19 +141,22 @@ include 'header.php';
 <body>
     <div class="container">
         <h2>Sistem Pembayaran</h2>
-        <form method="GET">
-            <select name="id_pendaftar" onchange="this.form.submit()" required>
-                <option value="" disabled selected>Pilih Pendaftar</option>
-                <?php foreach ($pendaftar as $row): ?>
-                    <option value="<?= $row['id_pendaftar'] ?>" <?= isset($_GET['id_pendaftar']) && $_GET['id_pendaftar'] == $row['id_pendaftar'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($row['Nama']) ?> (<?= htmlspecialchars($row['Tahun_ajaran']) ?>)
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </form>
-
+        <?php if (!$pendaftar): ?>
+        <!-- Form untuk memasukkan No Pendaftar -->
         <form method="POST">
-            <input type="hidden" name="id_pendaftar" value="<?= isset($_GET['id_pendaftar']) ? intval($_GET['id_pendaftar']) : '' ?>">
+            <label for="no_pendaftar">Masukkan No Pendaftar</label>
+            <input type="text" id="no_pendaftar" name="no_pendaftar" placeholder="No Pendaftar" required>
+            <button type="submit" name="cek_pendaftar">Cek Pendaftar</button>
+        </form>
+        <?php endif; ?>
+
+        <?php if ($pendaftar): ?>
+        <!-- Tampilkan nama pendaftar -->
+        <h3>Nama Pendaftar: <?= htmlspecialchars($pendaftar['Nama']) ?></h3>
+
+        <!-- Form pembayaran jika pendaftar ditemukan -->
+        <form method="POST">
+            <input type="hidden" name="no_pendaftar" value="<?= htmlspecialchars($pendaftar['no_pendaftar']) ?>">
             
             <label for="jenis_biaya">Jenis Biaya</label>
             <select id="jenis_biaya" name="jenis_biaya" required onchange="updateJumlahBiaya()">
@@ -209,9 +164,7 @@ include 'header.php';
                 <?php
                 $jenis_biaya = ['B_pendaftaran', 'B_SPP', 'B_Awaltahun', 'B_seragam'];
                 foreach ($jenis_biaya as $biaya) {
-                    if (!in_array($biaya, $jenis_biaya_terbayar)) {
-                        echo "<option value='$biaya'>" . str_replace('_', ' ', ucfirst($biaya)) . "</option>";
-                    }
+                    echo "<option value='$biaya'>" . str_replace('_', ' ', ucfirst($biaya)) . "</option>";
                 }
                 ?>
             </select>
@@ -224,34 +177,7 @@ include 'header.php';
 
             <button type="submit" name="bayar">Bayar</button>
         </form>
-
-        <h2>Riwayat Pembayaran</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Nama Pendaftar</th>
-                    <th>Jenis Biaya</th>
-                    <th>Jumlah Biaya</th>
-                    <th>Uang Dibayar</th>
-                    <th>Kembalian</th>
-                    <th>Tanggal Pembayaran</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($pembayaran)): ?>
-                    <tr><td colspan="6" style="color:#888;">Belum ada pembayaran.</td></tr>
-                <?php else: foreach ($pembayaran as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['Nama']) ?></td>
-                        <td><?= htmlspecialchars($row['jenis_biaya']) ?></td>
-                        <td><?= htmlspecialchars(number_format($row['jumlah_biaya'], 2, ',', '.')) ?></td>
-                        <td><?= htmlspecialchars(number_format($row['uang_dibayar'], 2, ',', '.')) ?></td>
-                        <td><?= htmlspecialchars(number_format($row['kembalian'], 2, ',', '.')) ?></td>
-                        <td><?= htmlspecialchars($row['tanggal_pembayaran']) ?></td>
-                    </tr>
-                <?php endforeach; endif; ?>
-            </tbody>
-        </table>
+        <?php endif; ?>
     </div>
 </body>
 </html>

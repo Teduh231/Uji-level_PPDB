@@ -363,7 +363,7 @@
                             <i class="fas fa-credit-card"></i>
                             Pembayaran
                         </a>
-                        <a href="keuangan.php" class="nav-link">
+                        <a href="totalpembayaran.php" class="nav-link">
                             <i class="fas fa-wallet"></i>
                             Biaya tahunan
                         </a>

@@ -26,12 +26,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("Semua field harus diisi.");
     }
 
+    // Generate nomor pendaftar
+    $query_no_pendaftar = "SELECT COUNT(*) AS total FROM pendaftaran";
+    $result_no_pendaftar = $conn->query($query_no_pendaftar);
+    $row_no_pendaftar = $result_no_pendaftar->fetch_assoc();
+    $no_pendaftar = "P" . str_pad($row_no_pendaftar['total'] + 1, 5, "0", STR_PAD_LEFT);
+
     // Insert data ke tabel pendaftaran
-    $stmt = $conn->prepare("INSERT INTO pendaftaran (NIS, Nama, Alamat, Email, Telepon, Rata, JK, kode_jur, Tahun_ajaran, Kd_petugas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssssssss", $nis, $nama, $alamat, $email, $telepon, $rata, $jk, $kode_jur, $tahun_ajaran, $kd_petugas);
+    $stmt = $conn->prepare("INSERT INTO pendaftaran (no_pendaftar, NIS, Nama, Alamat, Email, Telepon, Rata, JK, kode_jur, Tahun_ajaran, Kd_petugas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        die("Query gagal: " . $conn->error);
+    }
+    $stmt->bind_param("sssssssssss", $no_pendaftar, $nis, $nama, $alamat, $email, $telepon, $rata, $jk, $kode_jur, $tahun_ajaran, $kd_petugas);
 
     if ($stmt->execute()) {
-        echo "<script>alert('Data pendaftar berhasil disimpan!'); window.location.href='input_pendaftaran.php';</script>";
+        echo "<script>alert('Data pendaftar berhasil disimpan! Nomor Pendaftar: $no_pendaftar'); window.location.href='input_pendaftaran.php';</script>";
     } else {
         echo "<script>alert('Gagal menyimpan data pendaftar.'); window.history.back();</script>";
     }

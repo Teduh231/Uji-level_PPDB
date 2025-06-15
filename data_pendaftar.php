@@ -34,6 +34,25 @@ if (isset($_GET['delete'])) {
     }
 }
 
+if (isset($_POST['edit_pendaftar'])) {
+    $id_pendaftar = intval($_POST['id_pendaftar']);
+    $nis = $conn->real_escape_string($_POST['nis']);
+    $nama = $conn->real_escape_string($_POST['nama']);
+    $email = $conn->real_escape_string($_POST['email']);
+    $telepon = $conn->real_escape_string($_POST['telepon']);
+    $rata = floatval($_POST['rata']);
+    $jk = $conn->real_escape_string($_POST['jk']);
+    $kode_jur = $conn->real_escape_string($_POST['kode_jur']);
+    $tahun_ajaran = $conn->real_escape_string($_POST['tahun_ajaran']);
+
+    $update_query = "UPDATE pendaftaran SET NIS = '$nis', Nama = '$nama', Email = '$email', Telepon = '$telepon', Rata = '$rata', JK = '$jk', kode_jur = '$kode_jur', Tahun_ajaran = '$tahun_ajaran' WHERE id_pendaftar = $id_pendaftar";
+    if ($conn->query($update_query)) {
+        echo "<script>alert('Data berhasil diperbarui!');window.location='data_pendaftar.php';</script>";
+    } else {
+        die("Error: " . $conn->error);
+    }
+}
+
 include 'header.php';
 ?>
 <!DOCTYPE html>
@@ -253,7 +272,7 @@ include 'header.php';
         <table>
             <thead>
                 <tr>
-                    <th>No</th>
+                    <th>No Pendaftar</th>
                     <th>NIS</th>
                     <th>Nama</th>
                     <th>Email</th>
@@ -277,7 +296,7 @@ include 'header.php';
                     $no = 1;
                     foreach ($pendaftar as $row): ?>
                         <tr>
-                            <td><?= $no++ ?></td>
+                            <td><?= htmlspecialchars($row['no_pendaftar']) ?></td>
                             <td><?= htmlspecialchars($row['NIS']) ?></td>
                             <td><?= htmlspecialchars($row['Nama']) ?></td>
                             <td><?= htmlspecialchars($row['Email']) ?></td>
